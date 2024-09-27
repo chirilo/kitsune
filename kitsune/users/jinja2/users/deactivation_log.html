@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% set title = _('Deactivation Log') %}
+
+{% set styles = ('users',) %}
+
+{% block content %}
+<section class="sumo-page-section">
+  <h1 class="sumo-page-heading">{{ title }}</h1>
+  <table id="deactivations-log">
+    <thead>
+      <tr>
+        <th>{{ _('Date') }}</th>
+        <th>{{ _('Deactivated user') }}</th>
+        <th>{{ _('Deactivated by') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for deactivation in deactivations %}
+        <tr>
+          <td>{{ deactivation.date }}</td>
+          <td><a href="{{ profile_url(deactivation.user) }}">
+              {{ display_name(deactivation.user) }}</a></td>
+          <td><a href="{{ profile_url(deactivation.moderator) }}">
+              {{ display_name(deactivation.moderator) }}</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {{ deactivations|quick_paginator }}
+</section>
+{% endblock %}

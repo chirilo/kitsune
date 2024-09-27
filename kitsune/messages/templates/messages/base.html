@@ -1,8 +1,0 @@
-{% extends "base.html" %}
-{% from "messages/includes/macros.html" import message_tabs %}
-{% set styles = ('jqueryui', 'messages') %}
-{% set scripts = ('messages', 'jqueryui') %}
-
-{% block side_top %}
-  {{ message_tabs(active_tab) }}
-{% endblock %}

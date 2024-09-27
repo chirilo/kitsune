@@ -4,9 +4,10 @@
 
   var env = nunjucks.configure({autoescape: true});
 
-  env.addFilter('gettext', gettext);
-  env.addFilter('ngettext', ngettext);
-  env.addFilter('interpolate', function(fmt, obj, named) {
+  env.addGlobal('_', gettext);
+  env.addGlobal('ngettext', window.ngettext);
+
+  env.addFilter('f', function(fmt, obj, named) {
     var keys = Object.keys(obj);
     var escape = env.getFilter('escape');
 
@@ -19,6 +20,7 @@
 
   env.addFilter('urlparams', function(url, params) {
     if (url) {
+      var i;
       var base = url.split('?')[0];
       var qs = url.split('?')[1] || '';
       qs = qs.split('&');
@@ -33,7 +35,7 @@
 
       url = base;
       var keys = Object.keys(params);
-      for (var i = 0; i < keys.length; i++) {
+      for (i = 0; i < keys.length; i++) {
         url += (url.indexOf('?') === -1) ? '?' : '&';
         url += keys[i];
         var val = params[keys[i]];
@@ -48,13 +50,17 @@
 
   env.addFilter('class_selected', function(v1, v2) {
     if (v1 === v2) {
-      return ' class="selected" ';
+      return ' class=selected ';
     }
     return '';
   });
 
   env.addFilter('stringify', function(obj) {
     return JSON.stringify(obj);
+  });
+
+  env.addFilter('encodeURI', function(uri) {
+    return encodeURI(uri);
   });
 
   k.nunjucksEnv = env;

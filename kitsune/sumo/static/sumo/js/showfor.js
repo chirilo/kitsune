@@ -35,7 +35,15 @@
   /* Get the product/platform data from the DOM, and munge it into the
    * desired format. */
   ShowFor.prototype.loadData = function() {
-    this.data = JSON.parse(this.$container.find('.showfor-data').html());
+    try {
+      this.data = JSON.parse(this.$container.find('.showfor-data').html());
+    } catch (e) {
+      this.data = {
+        products: [],
+        platforms: [],
+        versions: [],
+      };
+    }
     this.productSlugs = this.data.products.map(function(prod) {
       return prod.slug;
     });
@@ -456,9 +464,8 @@
 
         /* Loop through each of the possible slugs for windows. If
          * any of them match, then this name matches. */
-        var windowsTypes = ['winxp', 'win7', 'win8', 'win10'];
+        var windowsTypes = ['winxp', 'win7', 'win8', 'win10', 'win11'];
         var winMatches = false;
-        console.log(enabledPlatforms);
 
         windowsTypes.forEach(function(fakeName) {
           if (enabledPlatforms.indexOf(fakeName) >= 0) {

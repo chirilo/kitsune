@@ -1,54 +1,49 @@
-/* globals $:false, interpolate:false, _gaq:false */
-/* geo.mozilla.org will inject a couple functions that look like this, though
- * with the correct country code/name for the current client.
- *
- *  function geoip_country_code() { return 'US'; }
- *  function geoip_country_name() { return 'United States'; }
- */
+/* globals $:false, interpolate:false, trackEvent:false */
+/* Please do not directly use this code or SUMO key. */
+/* Contact MLS team for your own credentials. */
+/* https://location.services.mozilla.com/contact */
 
 (function() {
-  var cookieCountryName = $.cookie('geoip_country_name');
-  var cookieCountryCode = $.cookie('geoip_country_code');
+  var GeoIPUrl = 'https://location.services.mozilla.com/v1/country?key=fa6d7fc9-e091-4be1-b6c1-5ada5815ae9d';
+  var countryData = {
+    'country_name': $.cookie('geoip_country_name'),
+    'country_code': $.cookie('geoip_country_code')
+  };
 
-  if (cookieCountryName) {
-    window.geoip_country_name = function() {
-      return cookieCountryName;
-    };
-  } else if (window.geoip_country_name) {
-    // Cookie expires after 30 days.
-    $.cookie('geoip_country_name', window.geoip_country_name(), {expires: 30});
+  if (!countryData.country_name) {
+    $.ajax({
+      method: 'GET',
+      url: GeoIPUrl,
+      beforeSend: function() {} // don't send X-CSRFToken header
+    })
+    .done(function(data) {
+      $.cookie('geoip_country_name', data.country_name, { path: '/' });
+      $.cookie('geoip_country_code', data.country_code, { path: '/' });
+      countryData = data;
+    })
+    .fail(function(error) {
+      console.warn('Error retrieving geoip data');
+      $('#announce-geoip-suggestion').remove();
+    })
+    .always(function() {
+      handleLocale(countryData.country_name);
+    });
   } else {
-    window.geoip_country_name = function() {
-      return 'Unknown';
-    };
-  }
-
-  if (cookieCountryCode) {
-    window.geoip_country_code = function() {
-      return cookieCountryCode;
-    };
-  } else if (window.geoip_country_code) {
-    // Cookie expires after 30 days.
-    $.cookie('geoip_country_code', window.geoip_country_code(), {expires: 30});
-  } else {
-    window.geoip_country_code = function() {
-      return '??';
-    };
+    handleLocale(countryData.country_name);
   }
 })();
 
-(function() {
+function handleLocale(countryName) {
   // Mapping of {currentLocale: {country_name: suggested_locale}}
   var languageSuggestions = {
     'en-US': {
       Indonesia: 'id',
-      Bangladesh: 'bn-BD',
+      Bangladesh: 'bn',
     },
   };
 
   var currentLocale = $('html').attr('lang');
-  var currentCountry = window.geoip_country_name();
-  var suggestedLocale = (languageSuggestions[currentLocale] || {})[window.geoip_country_name()];
+  var suggestedLocale = (languageSuggestions[currentLocale] || {})[countryName];
   var $announceBar = $('#announce-geoip-suggestion');
 
   if (suggestedLocale) {
@@ -84,27 +79,27 @@
         {language: languageInNativeLocale},
         true);
 
-      var $container = $announceBar.find('.container_12');
-      var $message = $container.find('.grid_12');
+      $announceBar.show();
+      var $message = $announceBar.find('p');
 
-      $message.append($('<span/>').text(currentLocaleSuggestion));
-      $message.append($('<button class="btn confirm" />').text(data[currentLocale].confirm));
-      $message.append($('<button class="btn cancel" />').text(data[currentLocale].cancel));
+      $message.text(currentLocaleSuggestion);
+      $message.append($('<button class="sumo-button button-sm confirm" />').text(data[currentLocale].confirm));
+      $message.append($('<button class="sumo-button button-sm cancel" />').text(data[currentLocale].cancel));
 
       if (data[currentLocale].suggestion !== data[suggestedLocale].suggestion) {
-        $message = $('<div class="grid_12" />').appendTo($container);
-        $message.append($('<span/>').text(suggestedLocaleSuggestion));
-        $message.append($('<button class="btn confirm" />').text(data[suggestedLocale].confirm));
-        $message.append($('<button class="btn cancel" />').text(data[suggestedLocale].cancel));
+        var $localisedMessage = $('<p />').appendTo($announceBar);
+        $localisedMessage.text(suggestedLocaleSuggestion);
+        $localisedMessage.append($('<button class="sumo-button button-sm confirm" />').text(data[suggestedLocale].confirm));
+        $localisedMessage.append($('<button class="sumo-button button-sm cancel" />').text(data[suggestedLocale].cancel));
       }
 
-      _gaq.push(['_trackEvent', 'Geo IP Targeting', 'show banner']);
+      trackEvent('Geo IP Targeting', 'show banner');
     })
     .error(function(err) {
       console.error('GeoIP suggestion error', err);
     });
 
-    $announceBar.on('click', '.btn', function(ev) {
+    $announceBar.on('click', 'p button', function(ev) {
       /* If the user clicks "yes", close the bar (so it remembers) and navigate
       * to the new locale. If the user clicks "no", just close the bar.
       * Either way, the announce bar UI code (in ui.js) will remember this action
@@ -113,7 +108,7 @@
       var $this = $(this);
       $announceBar.find('.close-button').click();
       if ($this.hasClass('confirm')) {
-        _gaq.push(['_trackEvent', 'Geo IP Targeting', 'click yes']);
+        trackEvent('Geo IP Targeting', 'click yes');
         // Delay the click navigation by 250ms to ensure the event is tracked.
         setTimeout(function() {
           var newQsVar = 'lang=' + suggestedLocale;
@@ -125,7 +120,7 @@
           window.location.search += newQsVar;
         }, 250);
       } else {
-        _gaq.push(['_trackEvent', 'Geo IP Targeting', 'click no']);
+        trackEvent('Geo IP Targeting', 'click no');
       }
     });
 
@@ -133,5 +128,4 @@
     // If no locale should be suggested, the bar might still display, so remove it.
     $announceBar.remove();
   }
-
-})();
+}

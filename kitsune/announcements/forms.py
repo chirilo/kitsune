@@ -1,8 +1,7 @@
 from datetime import date
 
 from django import forms
-
-from tower import ugettext_lazy as _lazy
+from django.utils.translation import ugettext_lazy as _lazy
 
 
 class AnnouncementForm(forms.Form):
@@ -14,10 +13,11 @@ class AnnouncementForm(forms.Form):
     controllable locale or group, use the admin interface.
 
     """
-    content = forms.CharField(label=_lazy(u'Content'), max_length=10000,
-                              widget=forms.Textarea)
-    show_after = forms.DateField(label=_lazy(u'Show after'),
-                                 initial=date.today,
-                                 input_formats=['%Y-%m-%d'])
-    show_until = forms.DateField(label=_lazy(u'Show until'), required=False,
-                                 input_formats=['%Y-%m-%d'])
+
+    content = forms.CharField(label=_lazy("Content"), max_length=10000, widget=forms.Textarea)
+    show_after = forms.DateField(
+        label=_lazy("Show after"), initial=date.today, input_formats=["%Y-%m-%d"]
+    )
+    show_until = forms.DateField(
+        label=_lazy("Show until"), required=False, input_formats=["%Y-%m-%d"]
+    )

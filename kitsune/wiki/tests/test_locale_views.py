@@ -4,9 +4,9 @@ from pyquery import PyQuery as pq
 
 from kitsune.sumo.tests import TestCase, LocalizingClient
 from kitsune.sumo.urlresolvers import reverse
-from kitsune.users.tests import user, add_permission
+from kitsune.users.tests import UserFactory, add_permission
 from kitsune.wiki.models import Locale
-from kitsune.wiki.tests import locale
+from kitsune.wiki.tests import LocaleFactory
 
 
 class LocaleListTests(TestCase):
@@ -14,14 +14,14 @@ class LocaleListTests(TestCase):
 
     def test_locale_list(self):
         """Verify the locale list renders all locales."""
-        locale(locale='en-US', save=True)
-        locale(locale='es', save=True)
-        locale(locale='de', save=True)
+        LocaleFactory(locale="en-US")
+        LocaleFactory(locale="es")
+        LocaleFactory(locale="de")
 
-        r = self.client.get(reverse('wiki.locales'))
+        r = self.client.get(reverse("wiki.locales"))
         eq_(r.status_code, 200)
         doc = pq(r.content)
-        eq_(Locale.objects.count(), len(doc('#locale-listing li')))
+        eq_(Locale.objects.count(), len(doc("#locale-listing li")))
 
 
 class LocaleDetailsTests(TestCase):
@@ -29,26 +29,26 @@ class LocaleDetailsTests(TestCase):
 
     def test_locale_list(self):
         """Verify the locale list renders all locales."""
-        l = locale(locale='es', save=True)
-        leader = user(save=True)
-        l.leaders.add(leader)
-        reviewer = user(save=True)
-        l.reviewers.add(reviewer)
-        editor = user(save=True)
-        l.editors.add(editor)
+        lcl = LocaleFactory(locale="es")
+        leader = UserFactory()
+        lcl.leaders.add(leader)
+        reviewer = UserFactory()
+        lcl.reviewers.add(reviewer)
+        editor = UserFactory()
+        lcl.editors.add(editor)
 
-        r = self.client.get(reverse('wiki.locale_details', args=[l.locale]))
+        r = self.client.get(reverse("wiki.locale_details", args=[lcl.locale]))
         eq_(r.status_code, 200)
         doc = pq(r.content)
-        leaders = doc('ul.leaders > li')
+        leaders = doc("ul.leaders > li")
         eq_(1, len(leaders))
-        assert leader.username in leaders.text()
-        reviewers = doc('ul.reviewers > li')
+        assert leader.profile.name in leaders.text()
+        reviewers = doc("ul.reviewers > li")
         eq_(1, len(reviewers))
-        assert reviewer.username in reviewers.text()
-        editors = doc('ul.editors > li')
+        assert reviewer.profile.name in reviewers.text()
+        editors = doc("ul.editors > li")
         eq_(1, len(editors))
-        assert editor.username in editors.text()
+        assert editor.profile.name in editors.text()
 
 
 class AddRemoveLeaderTests(TestCase):
@@ -56,24 +56,23 @@ class AddRemoveLeaderTests(TestCase):
 
     def setUp(self):
         super(AddRemoveLeaderTests, self).setUp()
-        self.locale = locale(locale='es', save=True)
-        self.user = user(save=True)
-        add_permission(self.user, Locale, 'change_locale')
-        self.leader = user(save=True)
-        self.client.login(username=self.user.username, password='testpass')
+        self.locale = LocaleFactory(locale="es")
+        self.user = UserFactory()
+        add_permission(self.user, Locale, "change_locale")
+        self.leader = UserFactory()
+        self.client.login(username=self.user.username, password="testpass")
 
     def test_add_leader(self):
-        url = reverse('wiki.add_locale_leader', args=[self.locale.locale])
+        url = reverse("wiki.add_locale_leader", args=[self.locale.locale])
         r = self.client.get(url)
         eq_(405, r.status_code)
-        r = self.client.post(url, {'users': self.leader.username})
+        r = self.client.post(url, {"users": self.leader.username})
         eq_(302, r.status_code)
         assert self.leader in self.locale.leaders.all()
 
     def test_remove_leader(self):
         self.locale.leaders.add(self.leader)
-        url = reverse('wiki.remove_locale_leader',
-                      args=[self.locale.locale, self.leader.id])
+        url = reverse("wiki.remove_locale_leader", args=[self.locale.locale, self.leader.id])
         r = self.client.get(url)
         eq_(200, r.status_code)
         r = self.client.post(url)
@@ -86,24 +85,23 @@ class AddRemoveReviewerTests(TestCase):
 
     def setUp(self):
         super(AddRemoveReviewerTests, self).setUp()
-        self.locale = locale(locale='es', save=True)
-        self.user = user(save=True)
+        self.locale = LocaleFactory(locale="es")
+        self.user = UserFactory()
         self.locale.leaders.add(self.user)
-        self.reviewer = user(save=True)
-        self.client.login(username=self.user.username, password='testpass')
+        self.reviewer = UserFactory()
+        self.client.login(username=self.user.username, password="testpass")
 
     def test_add_reviewer(self):
-        url = reverse('wiki.add_locale_reviewer', args=[self.locale.locale])
+        url = reverse("wiki.add_locale_reviewer", args=[self.locale.locale])
         r = self.client.get(url)
         eq_(405, r.status_code)
-        r = self.client.post(url, {'users': self.reviewer.username})
+        r = self.client.post(url, {"users": self.reviewer.username})
         eq_(302, r.status_code)
         assert self.reviewer in self.locale.reviewers.all()
 
     def test_remove_reviewer(self):
         self.locale.reviewers.add(self.reviewer)
-        url = reverse('wiki.remove_locale_reviewer',
-                      args=[self.locale.locale, self.reviewer.id])
+        url = reverse("wiki.remove_locale_reviewer", args=[self.locale.locale, self.reviewer.id])
         r = self.client.get(url)
         eq_(200, r.status_code)
         r = self.client.post(url)
@@ -116,24 +114,23 @@ class AddRemoveEditorTests(TestCase):
 
     def setUp(self):
         super(AddRemoveEditorTests, self).setUp()
-        self.locale = locale(locale='es', save=True)
-        self.user = user(save=True)
+        self.locale = LocaleFactory(locale="es")
+        self.user = UserFactory()
         self.locale.leaders.add(self.user)
-        self.editor = user(save=True)
-        self.client.login(username=self.user.username, password='testpass')
+        self.editor = UserFactory()
+        self.client.login(username=self.user.username, password="testpass")
 
     def test_add_editor(self):
-        url = reverse('wiki.add_locale_editor', args=[self.locale.locale])
+        url = reverse("wiki.add_locale_editor", args=[self.locale.locale])
         r = self.client.get(url)
         eq_(405, r.status_code)
-        r = self.client.post(url, {'users': self.editor.username})
+        r = self.client.post(url, {"users": self.editor.username})
         eq_(302, r.status_code)
         assert self.editor in self.locale.editors.all()
 
     def test_remove_editor(self):
         self.locale.editors.add(self.editor)
-        url = reverse('wiki.remove_locale_editor',
-                      args=[self.locale.locale, self.editor.id])
+        url = reverse("wiki.remove_locale_editor", args=[self.locale.locale, self.editor.id])
         r = self.client.get(url)
         eq_(200, r.status_code)
         r = self.client.post(url)

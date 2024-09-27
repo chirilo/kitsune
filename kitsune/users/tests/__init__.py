@@ -1,13 +1,9 @@
-import random
-from string import letters
-
-from django.contrib.auth.models import User, Group, Permission
-from django.contrib.contenttypes.models import ContentType
-
 import factory
-
-from kitsune.sumo.tests import LocalizingClient, TestCase, with_save
-from kitsune.users.models import Profile, Setting
+from django.contrib.auth.models import Group, Permission, User
+from django.contrib.contenttypes.models import ContentType
+from kitsune.sumo.tests import FuzzyUnicode, LocalizingClient, TestCase
+from kitsune.users.models import AccountEvent, Profile, Setting
+from tidings.models import Watch
 
 
 class TestCaseBase(TestCase):
@@ -20,81 +16,41 @@ class UserFactory(factory.DjangoModelFactory):
     class Meta:
         model = User
 
-    username = factory.Sequence(lambda n: 'test-user-{}'.format(n))
-    email = factory.LazyAttribute(lambda u: '{}@example.com'.format(u.username))
-    password = factory.PostGenerationMethodCall('set_password', 'testpass')
+    username = factory.fuzzy.FuzzyText()
+    email = factory.LazyAttribute(lambda u: "{}@example.com".format(u.username))
+    password = factory.PostGenerationMethodCall("set_password", "testpass")
+
+    # We pass in 'user' to link the generated Profile to our just-generated User.
+    # This will call ProfileFactory(user=our_new_user), thus skipping the SubFactory.
+    profile = factory.RelatedFactory("kitsune.users.tests.ProfileFactory", "user")
 
     @factory.post_generation
-    def profile(user, created, extracted, **kwargs):
-        if type(extracted) == Profile:
-            return
-        ProfileFactory(user=user)
+    def groups(user, created, extracted, **kwargs):
+        groups = extracted or []
+        for group in groups:
+            user.groups.add(group)
 
 
 class ProfileFactory(factory.DjangoModelFactory):
     class Meta:
         model = Profile
 
-    name = factory.Sequence(lambda n: 'Test K. User {}'.format(n))
-    bio = 'Some bio.'
-    website = 'http://support.example.com'
+    name = FuzzyUnicode()
+    bio = FuzzyUnicode()
+    website = "http://support.example.com"
     timezone = None
-    country = 'US'
-    city = 'Portland'
-    locale = 'en-US'
-    user = factory.SubFactory(UserFactory)
+    country = "US"
+    city = "Portland"
+    locale = "en-US"
+    is_fxa_migrated = True
+    user = factory.SubFactory(UserFactory, profile=None)
 
 
-def profile(**kwargs):
-    """Return a saved profile for a given user."""
-    # Many tests check for user identity based on the display name, so it's
-    # helpful to make `name` here probably unique.
-    defaults = {
-        'name': 'Test K. User ({0})'.format(random.randint(0, 1000)),
-        'bio': 'Some bio.',
-        'website': 'http://support.mozilla.com',
-        'timezone': None,
-        'country': 'US',
-        'city': 'Mountain View',
-        'locale': 'en-US',
-    }
-    if 'user' not in kwargs:
-        u = user(save=True)
-        defaults['user'] = u
-    defaults.update(kwargs)
+class GroupFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = Group
 
-    p = Profile(**defaults)
-    p.save()
-    return p
-
-
-@with_save
-def user(**kwargs):
-    """Return a user with all necessary defaults filled in.
-
-    Default password is 'testpass' unless you say otherwise in a kwarg.
-
-    """
-    defaults = {}
-    if 'username' not in kwargs:
-        defaults['username'] = ''.join(random.choice(letters)
-                                       for x in xrange(15))
-    if 'email' not in kwargs:
-        defaults['email'] = ''.join(
-            random.choice(letters) for x in xrange(10)) + '@example.com'
-    defaults.update(kwargs)
-    user = User(**defaults)
-    user.set_password(kwargs.get('password', 'testpass'))
-    return user
-
-
-@with_save
-def group(**kwargs):
-    defaults = {}
-    if 'name' not in kwargs:
-        defaults['name'] = ''.join(random.choice(letters) for x in xrange(15))
-    defaults.update(kwargs)
-    return Group(**defaults)
+    name = factory.fuzzy.FuzzyText()
 
 
 def add_permission(user, model, permission_codename):
@@ -104,21 +60,39 @@ def add_permission(user, model, permission_codename):
 
     """
     content_type = ContentType.objects.get_for_model(model)
-    try:
-        permission = Permission.objects.get(codename=permission_codename,
-                                            content_type=content_type)
-    except Permission.DoesNotExist:
-        permission = Permission.objects.create(codename=permission_codename,
-                                               name=permission_codename,
-                                               content_type=content_type)
+    permission, created = Permission.objects.get_or_create(
+        codename=permission_codename,
+        content_type=content_type,
+        defaults={"name": permission_codename},
+    )
     user.user_permissions.add(permission)
 
 
-@with_save
-def setting(**kwargs):
-    defaults = {
-        'name': ''.join(random.choice(letters) for _ in range(10)),
-        'value': ''.join(random.choice(letters) for _ in range(10)),
-    }
+class SettingFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = Setting
+
+    name = factory.fuzzy.FuzzyText()
+    value = factory.fuzzy.FuzzyText()
+
+
+# pulled from https://github.com/mozilla/django-tidings/blob/master/tests/base.py#L23
+def tidings_watch(save=False, **kwargs):
+    # TODO: better defaults, when there are events available.
+    defaults = {"user": kwargs.get("user"), "is_active": True, "secret": "abcdefghjk"}
     defaults.update(kwargs)
-    return Setting(**defaults)
+    w = Watch.objects.create(**defaults)
+    if save:
+        w.save()
+    return w
+
+
+class AccountEventFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = AccountEvent
+
+    status = AccountEvent.UNPROCESSED
+    fxa_uid = "54321"
+    jwt_id = "e19ed6c5-4816-4171-aa43-56ffe80dbda1"
+    issued_at = "1565720808"
+    profile = factory.SubFactory(ProfileFactory)

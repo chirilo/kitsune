@@ -2,33 +2,29 @@ from datetime import timedelta, datetime
 
 from nose.tools import eq_
 
-from kitsune.announcements.tests import announcement
+from kitsune.announcements.tests import AnnouncementFactory
 from kitsune.dashboards.readouts import CONTRIBUTOR_READOUTS
 from kitsune.sumo.tests import TestCase
 from kitsune.sumo.urlresolvers import reverse
-from kitsune.users.tests import user
-from kitsune.wiki.models import HelpfulVote
-from kitsune.wiki.tests import locale, revision
+from kitsune.users.tests import UserFactory
+from kitsune.wiki.models import HelpfulVote, Document
+from kitsune.wiki.tests import LocaleFactory, ApprovedRevisionFactory
 
 
 class LocalizationDashTests(TestCase):
     def test_redirect_to_contributor_dash(self):
-        """Should redirect to Contributor Dash if the locale is the default
-        """
-        response = self.client.get(reverse('dashboards.localization',
-                                           locale='en-US'),
-                                   follow=True)
-        self.assertRedirects(response, reverse('dashboards.contributors',
-                                               locale='en-US'))
+        """Should redirect to Contributor Dash if the locale is the default"""
+        response = self.client.get(reverse("dashboards.localization", locale="en-US"), follow=True)
+        self.assertRedirects(response, reverse("dashboards.contributors", locale="en-US"))
 
 
 def LocalizationDashAnnouncementsTests(TestCase):
     def setUp(self):
-        self.locale1 = locale(save=True, locale='es')
+        self.locale1 = LocaleFactory(locale="es")
 
-        self.u1 = user(save=True)
-        self.u2 = user(save=True)
-        self.u3 = user(save=True)
+        self.u1 = UserFactory()
+        self.u2 = UserFactory()
+        self.u3 = UserFactory()
 
         self.u1.is_superuser = 1
         self.u1.save()
@@ -36,58 +32,65 @@ def LocalizationDashAnnouncementsTests(TestCase):
         self.locale1.leaders.add(self.u2)
         self.locale1.save()
 
-        self.announcement = announcement(
-            save=True, creator=self.u2, locale=self.locale1,
-            content="Look at me!", show_after=datetime(2012, 01, 01, 0, 0, 0))
+        self.announcement = AnnouncementFactory(
+            creator=self.u2,
+            locale=self.locale1,
+            content="Look at me!",
+            show_after=datetime(2012, 1, 1, 0, 0, 0),
+        )
 
     def test_show_create(self):
-        self.client.login(username=self.u1.username, password='testpass')
-        resp = self.client.get(reverse('dashboards.localization'))
+        self.client.login(username=self.u1.username, password="testpass")
+        resp = self.client.get(reverse("dashboards.localization"))
         self.assertContains(resp, 'id="create-announcement"')
 
     def test_show_for_authed(self):
-        self.client.login(username=self.u2.username, password='testpass')
-        resp = self.client.get(reverse('dashboards.localization'))
+        self.client.login(username=self.u2.username, password="testpass")
+        resp = self.client.get(reverse("dashboards.localization"))
         self.assertContains(resp, 'id="create-announcement"')
 
     def test_hide_for_not_authed(self):
-        self.client.login(username=self.u3.username, password='testpass')
-        resp = self.client.get(reverse('dashboards.localization'))
+        self.client.login(username=self.u3.username, password="testpass")
+        resp = self.client.get(reverse("dashboards.localization"))
         self.assertNotContains(resp, 'id="create-announcement"')
 
     def test_hide_for_anon(self):
-        resp = self.client.get(reverse('dashboards.localization'))
+        resp = self.client.get(reverse("dashboards.localization"))
         self.assertNotContains(resp, 'id="create-announcement"')
 
 
 class ContributorDashTests(TestCase):
     def test_main_view(self):
         """Assert the top page of the contributor dash resolves, renders."""
-        response = self.client.get(reverse('dashboards.contributors',
-                                           locale='en-US'))
+        response = self.client.get(reverse("dashboards.contributors", locale="en-US"))
         eq_(200, response.status_code)
 
     def test_detail_view(self):
-        """Assert the detail page of the contributor dash resolves, renders.
-        """
-        readoutKey = CONTRIBUTOR_READOUTS.keys()[0]
+        """Assert the detail page of the contributor dash resolves, renders."""
+        readoutKey = list(CONTRIBUTOR_READOUTS.keys())[0]
         response = self.client.get(
-            reverse('dashboards.contributors_detail',
-                    args=[CONTRIBUTOR_READOUTS[readoutKey].slug],
-                    locale='en-US'))
+            reverse(
+                "dashboards.contributors_detail",
+                args=[CONTRIBUTOR_READOUTS[readoutKey].slug],
+                locale="en-US",
+            )
+        )
         eq_(200, response.status_code)
 
     def test_needs_change_comment_is_shown(self):
-        rev = revision(is_approved=True, save=True)
-        doc = rev.document
-        doc.needs_change = True
-        doc.needs_change_comment = 'lorem OMG FIX ipsum dolor'
-        doc.save()
+        # If there are already 10 documents, this is probably going to
+        # fail anyways, so be quick and obvious about it.
+        assert Document.objects.count() < 10
 
-        response = self.client.get(reverse('dashboards.contributors',
-                                           locale='en-US'))
+        change_comment = b"lorem OMG FIX ipsum dolor"
+        ApprovedRevisionFactory(
+            document__needs_change=True,
+            document__needs_change_comment=change_comment,
+        )
+
+        response = self.client.get(reverse("dashboards.contributors", locale="en-US"))
         eq_(200, response.status_code)
-        assert doc.needs_change_comment in response.content
+        assert change_comment in response.content
 
 
 def _add_vote_in_past(rev, vote, days_back):

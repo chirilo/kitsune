@@ -1,11 +1,11 @@
 /* globals k:false, jQuery:false, ShowFor:false, Marky:false, VERSIONS:false,
-           BrowserDetect:false, gettext:false, KBox:false, CodeMirror:false */
+           BrowserDetect:false, gettext:false, KBox:false, CodeMirror:false, interpolate:false */
 /*
  * wiki.js
  * Scripts for the wiki app.
  */
 
-(function ($) {
+(function($) {
   function init() {
     var $body = $('body');
 
@@ -17,13 +17,14 @@
     if ($body.is('.document')) {  // Document page
       // Put last search query into search box
       $('#support-search input[name=q]')
-          .val(k.unquote($.cookie('last_search')));
+        .val(k.unquote($.cookie('last_search')));
       new ShowFor(); // eslint-disable-line
       addReferrerAndQueryToVoteForm();
       new k.AjaxVote('.document-vote form', { // eslint-disable-line
-        positionMessage: true
+        positionMessage: false,
+        replaceFormWithMessage: true,
+        removeForm: true
       });
-      initAOABanner();
     } else if ($body.is('.review')) { // Review pages
       new ShowFor(); // eslint-disable-line
       initNeedsChange();
@@ -39,7 +40,7 @@
       $('#id_comment').keypress(function(e) {
         if (e.which === 13) {
           $(this).blur();
-          $(this).closest('form').find('input[type=submit]').focus().click();
+          $(this).closest('form').find('[type=submit]').click();
           return false;
         }
       });
@@ -61,18 +62,19 @@
 
     if ($body.is('.edit, .new')) {
       // collapse the topics listing per product and show only one topic list
-      // at at a time
-      $(function () {
-        $('#accordion').accordion({
-          collapsible: true,
-          heightStyle: 'content',
-          active: false
-        });
-      });
+      // // at at a time
+      // $(function () {
+      //   $('#accordion').accordion({
+      //     collapsible: true,
+      //     heightStyle: 'content',
+      //     active: false
+      //   });
+      // });
     }
 
     if ($body.is('.translate')) {  // Translate page
       initToggleDiff();
+      initTranslationDraft();
     }
 
     initEditingTools();
@@ -123,12 +125,12 @@
       $('details').each(function() {
         // Store a reference to the current `details` element in a variable
         var $details = $(this),
-        // Store a reference to the `summary` element of the current `details` element (if any) in a variable
-            $detailsSummary = $('summary', $details),
-        // Do the same for the info within the `details` element
-            $detailsNotSummary = $details.children(':not(summary)'),
-        // This will be used later to look for direct child text nodes
-            $detailsNotSummaryContents = $details.contents(':not(summary)');
+          // Store a reference to the `summary` element of the current `details` element (if any) in a variable
+          $detailsSummary = $('summary', $details),
+          // Do the same for the info within the `details` element
+          $detailsNotSummary = $details.children(':not(summary)'),
+          // This will be used later to look for direct child text nodes
+          $detailsNotSummaryContents = $details.contents(':not(summary)');
 
         // If there is no `summary` in the current `details` element...
         if (!$detailsSummary.length) {
@@ -169,15 +171,15 @@
           $detailsNotSummary.slideToggle();
           $details.toggleClass('open');
         }).keyup(function(event) {
-              if (event.keyCode === 13 || event.keyCode === 32) {
-                // Enter or Space is pressed -- trigger the `click` event on the `summary` element
-                // Opera already seems to trigger the `click` event when Enter is pressed
-                if (!($.browser.opera && event.keyCode === 13)) {
-                  event.preventDefault();
-                  $detailsSummary.click();
-                }
-              }
-            });
+          if (event.keyCode === 13 || event.keyCode === 32) {
+            // Enter or Space is pressed -- trigger the `click` event on the `summary` element
+            // Opera already seems to trigger the `click` event when Enter is pressed
+            if (!($.browser.opera && event.keyCode === 13)) {
+              event.preventDefault();
+              $detailsSummary.click();
+            }
+          }
+        });
       });
     }
   }
@@ -213,30 +215,30 @@
     $.each(fields, function(i, field) {
       $(field.id).addClass('prepopulated_field');
       $(field.id).data('dependency_list', field.dependency_list)
-          .prepopulate($(field.dependency_ids.join(',')),
-              field.maxLength);
+        .prepopulate($(field.dependency_ids.join(',')),
+          field.maxLength);
     });
   }
 
   function initSummaryCount() {
     var $summaryCount = $('#remaining-characters'),
-        $summaryBox = $('#id_summary'),
-    // 160 characters is the maximum summary
-    // length of a Google result
-        warningCount = 160,
-        maxCount = $summaryCount.text(),
-        updateCount = function() {
-          var currentCount = $summaryBox.val().length;
-          $summaryCount.text(warningCount - currentCount);
-          if (warningCount - currentCount >= 0) {
-            $summaryCount.css('color', 'black');
-          } else {
-            $summaryCount.css('color', 'red');
-            if (currentCount >= maxCount) {
-              $summaryBox.val($summaryBox.val().substr(0, maxCount));
-            }
+      $summaryBox = $('#id_summary'),
+      // 160 characters is the maximum summary
+      // length of a Google result
+      warningCount = 160,
+      maxCount = $summaryCount.text(),
+      updateCount = function() {
+        var currentCount = $summaryBox.val().length;
+        $summaryCount.text(warningCount - currentCount);
+        if (warningCount - currentCount >= 0) {
+          $summaryCount.css('color', 'black');
+        } else {
+          $summaryCount.css('color', 'red');
+          if (currentCount >= maxCount) {
+            $summaryBox.val($summaryBox.val().substr(0, maxCount));
           }
-        };
+        }
+      };
 
     updateCount();
     $summaryBox.bind('input', updateCount);
@@ -247,11 +249,11 @@
    */
   function initArticlePreview() {
     var $preview = $('#preview'),
-        $previewBottom = $('#preview-bottom'),
-        preview = new k.AjaxPreview($('.btn-preview'), {
-          contentElement: $('#id_content'),
-          previewElement: $preview
-        });
+      $previewBottom = $('#preview-bottom'),
+      preview = new k.AjaxPreview($('.btn-preview'), {
+        contentElement: $('#id_content'),
+        previewElement: $preview
+      });
     $(preview).bind('done', function(e, success) {
       if (success) {
         $previewBottom.show();
@@ -267,8 +269,8 @@
   // Diff Preview of edits
   function initPreviewDiff() {
     var $diff = $('#preview-diff'),
-        $previewBottom = $('#preview-bottom'),
-        $diffButton = $('.btn-diff');
+      $previewBottom = $('#preview-bottom'),
+      $diffButton = $('.btn-diff');
     $diff.addClass('diff-this');
     $diffButton.click(function() {
       $diff.find('.to').text($('#id_content').val());
@@ -281,9 +283,9 @@
   function initTitleAndSlugCheck() {
     $('#id_title').change(function() {
       var $this = $(this),
-          $form = $this.closest('form'),
-          title = $this.val(),
-          slug = $('#id_slug').val();
+        $form = $this.closest('form'),
+        title = $this.val(),
+        slug = $('#id_slug').val();
       verifyTitleUnique(title, $form);
       // Check slug too, since it auto-updates and doesn't seem to fire
       // off change event.
@@ -291,8 +293,8 @@
     });
     $('#id_slug').change(function() {
       var $this = $(this),
-          $form = $this.closest('form'),
-          slug = $('#id_slug').val();
+        $form = $this.closest('form'),
+        slug = $('#id_slug').val();
       verifySlugUnique(slug, $form);
     });
 
@@ -323,8 +325,8 @@
             // Collision !!
             $field.addClass('error');
             $field.before(
-                $('<ul class="errorlist"><li/></ul>')
-                    .find('li').text(errorMsg).end()
+              $('<ul class="errorlist"><li/></ul>')
+                .find('li').text(errorMsg).end()
             );
           }
         },
@@ -340,32 +342,11 @@
     }
   }
 
-  // If the Customer Care banner is present, animate it and handle closing.
-  function initAOABanner() {
-    var $banner = $('#banner'),
-        cssFrom = { top: -100 },
-        cssTo = { top: -10 };
-    if ($banner.length > 0) {
-      setTimeout(function() {
-        $banner
-            .css({ display: 'block' })
-            .css(cssFrom)
-            .animate(cssTo, 500)
-            .find('a.close').click(function(e) {
-              e.preventDefault();
-              $banner.animate(cssFrom, 500, 'swing', function() {
-                $banner.css({ display: 'none' });
-              });
-            });
-      }, 500);
-    }
-  }
-
   // On document edit/translate/new pages, run validation before opening the
   // submit modal.
   function initPreValidation() {
     var $modal = $('#submit-modal'),
-        kbox = $modal.data('kbox');
+      kbox = $modal.data('kbox');
     kbox.updateOptions({
       preOpen: function() {
         var form = $('.btn-submit').closest('form')[0];
@@ -441,8 +422,8 @@
   }
 
   function initReadyForL10n() {
-    var $watchDiv = $('#revision-list div.l10n'),
-        post_url, checkbox_id;
+    var $watchDiv = $('#revision-list .l10n'),
+      post_url, checkbox_id;
 
     $watchDiv.find('a.markasready').click(function() {
       var $check = $(this);
@@ -452,20 +433,19 @@
     });
 
     $('#ready-for-l10n-modal input[type=submit], #ready-for-l10n-modal button[type=submit]').click(function() {
-      var csrf = $('#ready-for-l10n-modal input[name=csrfmiddlewaretoken]').val(),
-          kbox = $('#ready-for-l10n-modal').data('kbox');
+      var csrf = $('#ready-for-l10n-modal input[name=csrfmiddlewaretoken]').val();
       if (post_url !== undefined && checkbox_id !== undefined) {
         $.ajax({
           type: 'POST',
           url: post_url,
-          data: {csrfmiddlewaretoken: csrf},
+          data: { csrfmiddlewaretoken: csrf },
           success: function(response) {
             $('#' + checkbox_id).removeClass('markasready').addClass('yes');
             $('#' + checkbox_id).unbind('click');
-            kbox.close();
+            Mzp.Modal.closeModal()
           },
           error: function() {
-            kbox.close();
+            Mzp.Modal.closeModal()
           }
         });
       }
@@ -475,13 +455,13 @@
   function addReferrerAndQueryToVoteForm() {
     // Add the source/referrer and query terms to the helpful vote form
     var urlParams = k.getQueryParamsAsDict(),
-        referrer = k.getReferrer(urlParams),
-        query = k.getSearchQuery(urlParams, referrer);
+      referrer = k.getReferrer(urlParams),
+      query = k.getSearchQuery(urlParams, referrer);
     $('.document-vote form')
-        .append($('<input type="hidden" name="referrer"/>')
-            .attr('value', referrer))
-        .append($('<input type="hidden" name="query"/>')
-            .attr('value', query));
+      .append($('<input type="hidden" name="referrer"/>')
+        .attr('value', referrer))
+      .append($('<input type="hidden" name="query"/>')
+        .attr('value', query));
   }
 
   function initNeedsChange() {
@@ -489,7 +469,7 @@
     // "Needs change" checkbox. Also, make the textarea required
     // when checked.
     var $checkbox = $('#id_needs_change'),
-        $comment = $('#document-form li.comment,#approve-modal div.comment');
+      $comment = $('#document-form li.comment,#approve-modal div.comment');
 
     if ($checkbox.length > 0) {
       updateComment();
@@ -529,9 +509,9 @@
       });
 
       if ($(this).is('.show')) {
-        $.cookie('show-editing-tools', 1, {path: '/'});
+        $.cookie('show-editing-tools', 1, { path: '/' });
       } else {
-        $.cookie('show-editing-tools', null, {path: '/'});
+        $.cookie('show-editing-tools', null, { path: '/' });
       }
     });
   }
@@ -555,16 +535,18 @@
     window.highlighting.updateEditor = updateHighlightingEditor;
 
     var switch_link = $('<a></a>')
-        .text(gettext('Toggle syntax highlighting'))
-        .css({cssFloat: 'right', cursor: 'pointer'})
-        .toggle(function() {
+      .text(gettext('Toggle syntax highlighting'))
+      .css({ textAlign: 'right', cursor: 'pointer', display: 'block' })
+      .click(function() {
+        if (editor_wrapper.css('display') === 'block') {
           editor_wrapper.css('display', 'none');
           $('#id_content').css('display', 'block');
-        }, function() {
+        } else {
           updateHighlightingEditor();
           editor_wrapper.css('display', 'block');
           $('#id_content').css('display', 'none');
-        });
+        }
+      })
 
     var highlightingEnabled = function() {
       return editor_wrapper.css('display') === 'block';
@@ -576,11 +558,11 @@
 
     window.addEventListener('load', function() {
       var cm_editor = CodeMirror(document.getElementById('editor'), {
-        mode: {'name': 'sumo'},
+        mode: { 'name': 'sumo' },
         value: $('#id_content').val(),
         lineNumbers: true,
         lineWrapping: true,
-        extraKeys: {'Ctrl-Space': 'autocomplete'}
+        extraKeys: { 'Ctrl-Space': 'autocomplete' }
       });
       window.highlighting.editor = cm_editor;
 
@@ -603,9 +585,9 @@
     }
     if ($doc.is('.locked')) {
       var $inputs = $doc.find('input:enabled, textarea:enabled')
-          .prop('disabled', true);
+        .prop('disabled', true);
     }
-    $('#unlock-button').on('click', function () {
+    $('#unlock-button').on('click', function() {
       $inputs.prop('disabled', false);
       $doc.removeClass('locked');
       $('#locked-warning').slideUp(500);
@@ -627,15 +609,42 @@
 
     if ($diff.length > 0) {
       $contentOrDiff
-          .append($diff.clone())
-          .append(
-              $('<a/>')
-                  .text(gettext('Toggle Diff'))
-                  .click(function(e) {
-                    e.preventDefault();
-                    $contentOrDiff.toggleClass('content diff');
-                  }));
+        .append($diff.clone())
+        .append(
+          $('<a/>')
+            .text(gettext('Toggle Diff'))
+            .click(function(e) {
+              e.preventDefault();
+              $contentOrDiff.toggleClass('content diff');
+            }));
     }
+  }
+
+  function initTranslationDraft() {
+    var $draftButton = $('.btn-draft'),
+      url = $('.btn-draft').data('draft-url'),
+      $draftMessage = $('#draft-message');
+
+    $draftButton.click(function() {
+      var message = gettext('<strong>Draft is saving...</strong>'),
+        image = '<img src="/static/sumo/img/spinner.gif">',
+        bothData = $('#both_form').serializeArray(),
+        docData = $('#doc_form').serializeArray(),
+        revData = $('#rev_form').serializeArray(),
+        totalData = $.extend(bothData, docData, revData);
+
+      $draftMessage.html(image + message).removeClass('success error').addClass('info').show()
+      $.post(url, totalData)
+        .done(function() {
+          var time = new Date(),
+            message = interpolate(gettext('<strong>Draft has been saved on:</strong> %s'), [time]);
+          $draftMessage.html(message).toggleClass('info success').show();
+        })
+        .fail(function() {
+          var message = gettext('<strong>Error saving draft</strong>');
+          $draftMessage.html(message).toggleClass('info error').show();
+        });
+    });
   }
 
   function initRevisionList() {
@@ -657,7 +666,7 @@
 
       // scroll to the top.
       var scrollPos = Math.min($(document).scrollTop(),
-          $('#revision-list').offset().top);
+        $('#revision-list').offset().top);
       $(document).scrollTop(scrollPos);
       history.replaceState({}, '', url);
       $('#revisions-fragment').css('opacity', 0);
@@ -725,7 +734,7 @@
     });
 
     // Disable standard form submission
-    $form.find('.btn').remove();
+    $form.find('.btn, .button').remove();
     $form.on('keydown', function(e) {
       // 13 is enter.
       if (e.which === 13) {
@@ -733,7 +742,7 @@
       }
     });
 
-    $form.find('input[type=date]').datepicker();
+    $form.find('input[type=date]').attr('type', 'text').datepicker();
   }
 
   $(document).ready(init);
@@ -782,7 +791,7 @@
   }
 
   function initExitSupportFor() {
-    $('#support-for-exit').live('click', function() {
+    $('#support-for-exit').on('click', function() {
       $('#support-for').remove();
     });
   }

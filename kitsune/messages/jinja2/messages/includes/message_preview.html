@@ -1,0 +1,4 @@
+{% from "messages/includes/macros.html" import inbox_message with context %}
+<hr>
+<h2 class="sumo-page-subheading">{{ _('Message Preview:') }}</h2>
+{{ inbox_message(message) }}

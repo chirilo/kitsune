@@ -12,7 +12,7 @@
  *   returning undefined.
  * - Deleted the browsers we don't care about.
  */
-var BrowserDetect = {
+var BrowserDetect = window.BrowserDetect = {
   init: function () {
     var detected = this.detect();
     this.browser = detected[0];
@@ -157,7 +157,7 @@ var BrowserDetect = {
     },
     {
       string: navigator.platform,
-      subStrings: ['Linux'],
+      subStrings: [/Linux|FreeBSD/],
       identity: 'linux'
     },
     {
@@ -173,7 +173,9 @@ var BrowserDetect = {
     28.0: 1.3,
     30.0: 1.4,
     32.0: 2.0,
-    34.0: 2.1
+    34.0: 2.1,
+    37.0: 2.2,
+    44.0: 2.5
   }
 };
 BrowserDetect.init();  // TODO: Do this lazily.

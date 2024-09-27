@@ -10,7 +10,7 @@ Kitsune is localized with `gettext <http://www.gnu.org/software/gettext/>`_.
 User-facing strings in the code or templates need to be marked for gettext
 localization.
 
-We use `Verbatim <http://localize.mozilla.org/>`_ to provide an easy interface
+We use `Pontoon <https://pontoon.mozilla.org/>`_ to provide an easy interface
 to localizing these files. Localizers are also free to download the PO files
 and use whatever tool they are comfortable with.
 
@@ -63,7 +63,7 @@ Example::
                 'x': 1000 * int(time.mktime(rdate.timetuple())),
                 # L10n: 'R' is the first letter of "Revision".
                 'title': _('R', 'revision_heading'),
-                'text': unicode(_('Revision %s')) % rev.created
+                'text': str(_('Revision %s')) % rev.created
                 #'url': 'http://www.google.com/'  # Not supported yet
             })
 
@@ -176,7 +176,7 @@ tag::
     {% trans user=request.user.username %}
         Thanks for registering, {{ user }}! We're so...
         hope that you'll...
-    {% trans %}
+    {% endtrans %}
 
 
 You can also provide comments::
@@ -185,8 +185,16 @@ You can also provide comments::
     {% trans user=request.user.username %}
         Thanks for registering, {{ user }}! We're so...
         hope that you'll...
-    {% trans %}
+    {% endtrans %}
 
+
+When a block contains HTML with attributes,
+those which don't need to be localized should be passed as arguments.
+This ensures strings won't need to be re-localized if those attributes change::
+
+    {% trans url="http://example.com" %}
+        Please visit <a href="{{ url }}" title="External Site">our FAQ</a> for more information.
+    {% endtrans %}
 
 Strings in Python
 -----------------
@@ -249,7 +257,7 @@ definitions, strings in functions called from outside the context of a view. To
 localize these strings, you need to use the ``_lazy`` versions of the above
 methods, ``ugettext_lazy`` and ``ungettext_lazy``. The result doesn't get
 translated until it is evaluated as a string, for example by being output or
-passed to ``unicode()``::
+passed to ``str()``::
 
     from tower import ugettext_lazy as _lazy
 
@@ -262,7 +270,7 @@ functions. Failure to do so results in significant issues when they are
 evaluated as strings.
 
 If you need to work with a lazily-translated string, you'll first need to
-convert it to a ``unicode`` object::
+convert it to a ``str`` object::
 
     from tower import ugettext_lazy as _lazy
 
@@ -273,7 +281,7 @@ convert it to a ``unicode`` object::
         WELCOME % request.user.username
 
         # Works:
-        unicode(WELCOME) % request.user.username
+        str(WELCOME) % request.user.username
 
 
 Strings in the Database
@@ -407,11 +415,15 @@ Linting localized strings
 
 You can lint localized strings for warnings and errors::
 
-    $ ./manage.py lint locales/
+    $ dennis-cmd lint locale/
+
+Or just errors::
+
+    $ dennis-cmd lint --errorsonly locale/
 
 You can see help text::
 
-    $ ./manage.py lint
+    $ dennis-cmd
 
 
 .. _getting-localizations:
@@ -419,33 +431,23 @@ You can see help text::
 Getting the Localizations
 =========================
 
-Localizations are not stored in this repository, but are in Mozilla's SVN:
+Localizations are not stored in this repository, but are in a separate Git repo:
 
-    http://svn.mozilla.org/projects/sumo/locales
+    https://github.com/mozilla-l10n/sumo-l10n
 
 You don't need the localization files for general development. However, if
 you need them for something, they're pretty easy to get::
 
     $ cd kitsune
-    $ svn checkout https://svn.mozilla.org/projects/sumo/locales locale
-
-(Alternatively, you can do yourself a favor and use::
-
-    $ git svn clone -r HEAD https://svn.mozilla.org/projects/sumo/locales locale
-
-if you're a git fan.)
+    $ git clone https://github.com/mozilla-l10n/sumo-l10n locale
 
 
 Updating the Localizations
 ==========================
 
 When strings are added or updated, we need to update the templates and PO files
-for localizers. This needs to be coordinated with someone who has rights to
-update the data on `Verbatim <http://localize.mozilla.org/>`_. If you commit
-new strings to SVN and they are not updated right away on Verbatim, there will
-be big merging headaches.
-
-Updating strings is pretty easy. Check out the localizations as above, then::
+for localizers. Updating strings is pretty easy. Check out the localizations as
+above, then::
 
     $ python manage.py extract
     $ python manage.py merge
@@ -485,7 +487,7 @@ files in the repository.
 
 We don't store MO files in the repository because they need to change every
 time the corresponding PO file changes, so it's silly and not worth it. They
-are ignored by ``svn:ignore``, but please make sure you don't forcibly add them
+are ignored by ``.gitignore``, but please make sure you don't forcibly add them
 to the repository.
 
 There is a shell script to compile the MO files for you::
@@ -495,17 +497,28 @@ There is a shell script to compile the MO files for you::
 Done!
 
 
-Reporting errors in .po files
-==============================
+Why aren't localized strings getting updated on prod?
+=====================================================
 
-We use `Dennis <https://github.com/willkg/dennis>`_ to lint .po files
-for errors that cause HTTP 500 errors in production. Things like
-malformed variables, variables in the translated string that aren't in
-the original and that sort of thing.
+We use Dennis to :ref:`lint .po files for errors<localization:Linting localized strings>` that cause HTTP 500 errors in production.
+Things like malformed variables,
+variables in the translated string that aren't in the original and that sort of thing.
+
+For example, this would cause the site to break::
+
+    #: kitsune/questions/templates/questions/includes/answer.html:19
+    msgid "{num} answers"
+    msgstr "{0} antwoorden"
+
+In this example, the ``{0}`` is wrong.
+
+
+Reporting errors in .po files
+-----------------------------
 
 When we do a deployment to production, we dump all the Dennis output into:
 
-https://support.mozilla.org/media/postatus.txt
+https://support.mozilla.org/static/postatus.txt
 
 We need to check that periodically and report the errors.
 
@@ -539,6 +552,6 @@ Bug description template:
         strings for this locale to production.
 
         Mozilla Support strings can be fixed in the Support Mozilla project
-        in Verbatim <https://localize.mozilla.org/projects/sumo/>.
+        in Pontoon <https://pontoon.mozilla.org/projects/sumo/>.
 
         If you have any questions, let us know.

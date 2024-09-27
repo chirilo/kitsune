@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "includes/common_macros.html" import for_contributors_sidebar %}
+{% from "dashboards/includes/macros.html" import product_selector %}
+{% from "dashboards/includes/macros.html" import category_filter with context %}
+{% set title = 'Knowledge Base Overview' %}
+{% set scripts = ('wiki', 'wiki.dashboard') %}
+{% set styles = ('kbdashboards',) %}
+{% set crumbs = [(url(main_dash_view), main_dash_title), (None, title)] %}
+{# TODO: Move required dashboard scripts out of wiki.js into their own #}
+
+{% block content %}
+<article class="main dashboards dashboards-detail sumo-page-section">
+  <h1 class="sumo-page-heading">{{ title }}</h1>
+</article>
+{% endblock %}
+
+{% block below_main %}
+<div class="table-filters">
+  {{ product_selector(products, product) }}
+  {{ category_filter() }}
+</div>
+
+{% if overview_modes %}
+<nav class="tabs">
+  <ul data-slug="kb-overview" class="tabs--list readout-modes">
+    {% for key, name in overview_modes %}
+      <li class="tabs--item mode {% if key == 2 %}active{% endif %}" data-url="{{ url('dashboards.contributors_overview_rows')|urlparams(max=10, mode=key, locale=locale, product=product.slug) }}">
+        <a class="tabs--link {% if key == 2 %}is-active{% endif %}" href="#">
+          <span>{{ name }}</span>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+
+<table id="kb-overview-table">
+  {% include 'dashboards/includes/kb_overview.html' %}
+</table>
+{% endblock %}

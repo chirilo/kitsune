@@ -24,17 +24,14 @@ Part 2: Developer's Guide
    development
    tests
    celery
-   redis
    wsgi
    email
    localization
-   searchchapter
+   search
    frontend
-   armyofawesome
-   karma
-   wikidocs
+   browser_permissions
+   zendesk
    notes
-   licenses
 
 
 Part 3: SUMO
@@ -44,26 +41,18 @@ Part 3: SUMO
    :maxdepth: 2
 
    api
-   bots
    deployments
-   sop
+   k8s
    sla
+   architectural-decisions
 
-Part 4: Administration
-======================
+Part 4: User Guide
+==================
 
 .. toctree::
    :maxdepth: 2
 
-   products
-   groups
    users
    questions
-   forums
    badges
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
+   advanced-search

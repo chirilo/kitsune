@@ -1,26 +1,28 @@
 import logging
 
-from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
-
 import actstream.registry
 import requests
+import simplejson
 from actstream.models import Action, Follow
 from celery import task
+from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 from requests.exceptions import RequestException
 
-from kitsune.notifications.models import (
-    Notification, RealtimeRegistration, PushNotificationRegistration)
 from kitsune.notifications.decorators import notification_handler, notification_handlers
+from kitsune.notifications.models import (
+    Notification,
+    PushNotificationRegistration,
+    RealtimeRegistration,
+)
 
-
-logger = logging.getLogger('k.notifications.tasks')
+logger = logging.getLogger("k.notifications.tasks")
 
 
 def _ct_query(object, actor_only=None, **kwargs):
     ct = ContentType.objects.get_for_model(object)
     if actor_only is not None:
-        kwargs['actor_only'] = actor_only
+        kwargs["actor_only"] = actor_only
     return Q(content_type=ct.pk, object_id=object.pk, **kwargs)
 
 
@@ -37,26 +39,52 @@ def _full_ct_query(action, actor_only=None):
     return query
 
 
-def _send_simple_push(endpoint, version):
+def _send_simple_push(endpoint, version, max_retries=3, _retry_count=0):
     """
     Hit a simple push endpoint to send a notification to a user.
 
-    Handles and record any HTTP errors.
+    Handles and record any HTTP errors. May retry up to ``max_retries``
+    times by recursing.
+
+    This function tries hard to handle any potential errors, so it may
+    be used in a loop that iterates over many actions to send, without
+    the loop needing to contain error handling logic.
+
+    @param endpoint: The url to PUT to.
+    @param version: The version to include in the push. Should be an integer
+        greater than the version used every other time this endpoint has
+        been called. Timestamps and DB auto increment fields work well.
+    @param max_retries: The maximum number of times to try again.
     """
+
     try:
-        r = requests.put(endpoint, 'version={}'.format(version))
-        # If something does wrong, the SimplePush server will give back
-        # json encoded error messages.
-        if r.status_code != 200:
-            logger.error('SimplePush error: %s %s', r.status_code, r.json())
+        r = requests.put(endpoint, "version={}".format(version))
     except RequestException as e:
-        # This will go to Sentry.
-        logger.error('SimplePush PUT failed: %s', e)
+        # This is something like connection error, not a server error.
+        if _retry_count < max_retries:
+            return _send_simple_push(endpoint, version, max_retries, _retry_count + 1)
+        else:
+            logger.error("SimplePush PUT failed: %s", e)
+            return
+
+    # If something does wrong, the SimplePush server should give back json encoded error messages.
+    if r.status_code >= 400:
+        try:
+            data = r.json()
+        except simplejson.scanner.JSONDecodeError:
+            logger.error("SimplePush error (also not JSON?!): %s %s", r.status_code, r.text)
+            return
+
+        if r.status_code == 503 and data["errno"] == 202 and _retry_count < max_retries:
+            return _send_simple_push(endpoint, version, max_retries, _retry_count + 1)
+        else:
+            logger.error("SimplePush error: %s %s", r.status_code, r.json())
 
 
 @task(ignore_result=True)
-def add_notification_for_action(action_id):
+def add_notification_for_action(action_id: int):
     action = Action.objects.get(id=action_id)
+
     query = _full_ct_query(action, actor_only=False)
     # Don't send notifications to a user about actions they take.
     query &= ~Q(user=action.actor)
@@ -71,7 +99,7 @@ def add_notification_for_action(action_id):
 
 
 @task(ignore_result=True)
-def send_realtimes_for_action(action_id):
+def send_realtimes_for_action(action_id: int):
     action = Action.objects.get(id=action_id)
     query = _full_ct_query(action)
     # Don't send notifications to a user about actions they take.
@@ -83,7 +111,7 @@ def send_realtimes_for_action(action_id):
 
 
 @task(ignore_result=True)
-def send_notification(notification_id):
+def send_notification(notification_id: int):
     """Call every notification handler for a notification."""
     notification = Notification.objects.get(id=notification_id)
     for handler in notification_handlers:

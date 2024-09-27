@@ -1,76 +1,52 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime
-from random import randint
-
 from django.template.defaultfilters import slugify
 
+import factory
+import factory.fuzzy
+import factory.django
+
 from kitsune.products.models import Product, Topic, Version
-from kitsune.sumo.tests import with_save
+from kitsune.sumo.tests import FuzzyUnicode
 
 
-@with_save
-def product(**kwargs):
-    """Create and return a product."""
-    defaults = {'title': u'đ' + str(datetime.now()),
-                'display_order': 1,
-                'visible': True}
-    defaults.update(kwargs)
+class ProductFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = Product
 
-    if 'slug' not in kwargs:
-        defaults['slug'] = slugify(defaults['title'])
+    title = FuzzyUnicode()
+    slug = factory.LazyAttribute(lambda o: slugify(o.title))
+    description = FuzzyUnicode()
+    display_order = factory.fuzzy.FuzzyInteger(10)
+    visible = True
 
-    return Product(**defaults)
-
-
-@with_save
-def topic(**kwargs):
-    """Create and return a topic."""
-    defaults = {'title': u'đ' + str(datetime.now()),
-                'display_order': 1,
-                'visible': True}
-    defaults.update(kwargs)
-
-    if 'slug' not in kwargs:
-        defaults['slug'] = slugify(defaults['title'])
-
-    if 'product' not in kwargs:
-        defaults['product'] = product(save=True)
-
-    return Topic(**defaults)
+    image = factory.django.ImageField()
+    image_offset = 0
+    image_cachebuster = FuzzyUnicode()
+    sprite_height = 100
 
 
-@with_save
-def version(**kwargs):
-    """Create and return a version."""
-    v = randint(0, 1000)
+class TopicFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = Topic
 
-    defaults = {
-        'name': 'Version %d.0' % v,
-        'slug': 'v%d' % v,
-        'min_version': v,
-        'max_version': v + 1,
-        'visible': True,
-        'default': False,
-    }
-    defaults.update(kwargs)
-
-    if 'product' not in kwargs:
-        defaults['product'] = product(save=True)
-
-    return Version(**defaults)
+    title = FuzzyUnicode()
+    slug = factory.LazyAttribute(lambda o: slugify(o.title))
+    description = FuzzyUnicode()
+    image = factory.django.ImageField()
+    product = factory.SubFactory(ProductFactory)
+    display_order = factory.fuzzy.FuzzyInteger(10)
+    visible = True
+    in_aaq = factory.fuzzy.FuzzyChoice([True, False])
 
 
-@with_save
-def platform(**kwargs):
-    """Create and return a platform."""
-    v = randint(0, 1000)
+class VersionFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = Version
 
-    defaults = {
-        'name': 'Platform %d' % v,
-        'slug': 'platform%d' % v,
-        'visible': True,
-        'display_order': 0,
-    }
-    defaults.update(kwargs)
-
-    return Version(**defaults)
+    min_version = factory.fuzzy.FuzzyDecimal(100)
+    max_version = factory.LazyAttribute(lambda obj: obj.min_version + 1)
+    name = factory.LazyAttribute(lambda obj: "Version %d" % obj.min_version)
+    slug = factory.LazyAttribute(lambda obj: "v%d" % obj.min_version)
+    visible = True
+    default = factory.fuzzy.FuzzyChoice([False, True])
+    product = factory.SubFactory(ProductFactory)

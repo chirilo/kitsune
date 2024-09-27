@@ -1,0 +1,25 @@
+{% extends "search/base.html" %}
+{% from 'includes/common_macros.html' import for_contributors_sidebar %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block masthead %}
+<div class="search-results-visible">
+  <section class="home-search-section sumo-page-section--lg shade-bg ">
+    <div class="mzp-l-content">
+      <div class="home-search-section--content">
+        <h1 class="sumo-page-heading">{{ _('Search Support') }}</h1>
+          {% from "search/includes/macros.html" import basic_search_form with context %}
+          {{ basic_search_form(True) }}
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block content %}
+{% endblock %}
+
+{% block side %}
+{{ for_contributors_sidebar(user, settings.WIKI_DEFAULT_LANGUAGE) }}
+{% endblock %}

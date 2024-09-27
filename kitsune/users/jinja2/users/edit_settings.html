@@ -1,0 +1,23 @@
+{% extends "users/base.html" %}
+{% set title = _('Edit Settings') %}
+{% set classes = 'settings' %}
+{% set active = 'edit-settings' %}
+{% set crumbs = [(None, title)] %}
+
+{% block breadcrumbs %}{% endblock %}
+{% block content %}
+<article id="edit-settings" class="main">
+  <h1 class="sumo-page-heading">{{ title }}</h1>
+  <form method="post" action="">
+    {% csrf_token %}
+    {% for field in form %}
+      {{ checkbox(field) }}
+    {% endfor %}
+
+
+    <div class="sumo-button-wrap align-end">
+      <button class="sumo-button primary-button button-lg" type="submit">{{ _('Update') }}</button>
+    </div>
+  </form>
+</article>
+{% endblock %}

@@ -2,7 +2,7 @@
 $(document).ready(function() {
   // initiate tabs
   var tabs = $('#search-tabs').tabs(),
-  cache_search_date = $('.showhide-input');
+    cache_search_date = $('.showhide-input');
 
   $('#tab-wrapper form').submit(function() {
     $('input.auto-fill').each(function() {
@@ -12,7 +12,7 @@ $(document).ready(function() {
     });
   });
 
-  $('.datepicker').datepicker();
+  $('.datepicker').attr('type','text').datepicker();
   $('.datepicker').attr('readonly', 'readonly').css('background', '#ddd');
 
   $('select', cache_search_date).change(function () {

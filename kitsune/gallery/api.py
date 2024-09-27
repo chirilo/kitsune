@@ -1,39 +1,47 @@
 from django.db.models import Q
+from django.contrib.auth.models import User
 
 from rest_framework import generics, serializers
 
 from kitsune.gallery.models import Image
-from kitsune.sumo.api import LocaleNegotiationMixin, InequalityFilterBackend, DateTimeUTCField
+from kitsune.sumo.api_utils import (
+    LocaleNegotiationMixin,
+    InequalityFilterBackend,
+    DateTimeUTCField,
+    ImageUrlField,
+)
 
 
 class ImageShortSerializer(serializers.ModelSerializer):
-    url = serializers.SerializerMethodField('get_url')
+    url = ImageUrlField(source="file")
 
     class Meta(object):
         model = Image
-        fields = ('id', 'title', 'url', 'locale', 'width', 'height')
-
-    def get_url(self, obj):
-        return obj.file.url
+        fields = ("id", "title", "url", "locale", "width", "height")
 
 
 class ImageDetailSerializer(ImageShortSerializer):
     created = DateTimeUTCField(read_only=True)
     updated = DateTimeUTCField(read_only=True)
-    updated_by = serializers.SlugRelatedField(slug_field='username')
+    updated_by = serializers.SlugRelatedField(slug_field="username", queryset=User.objects.all())
 
     class Meta(ImageShortSerializer.Meta):
         fields = ImageShortSerializer.Meta.fields + (
-            'created', 'updated', 'updated_by', 'description', 'is_draft',
-            'creator')
+            "created",
+            "updated",
+            "updated_by",
+            "description",
+            "is_draft",
+            "creator",
+        )
 
 
 class ImageList(LocaleNegotiationMixin, generics.ListAPIView):
     """List all image ids."""
+
     queryset = Image.objects.all()
     serializer_class = ImageShortSerializer
-    paginate_by = 100
-    filter_fields = ['height', 'width']
+    filterset_fields = ["height", "width"]
     filter_backends = [InequalityFilterBackend]
 
     def get_queryset(self):
@@ -43,7 +51,7 @@ class ImageList(LocaleNegotiationMixin, generics.ListAPIView):
         # locale may come from the Accept-language header, but it can be
         # overridden via the query string.
         locale = self.get_locale()
-        locale = self.request.QUERY_PARAMS.get('locale', locale)
+        locale = self.request.query_params.get("locale", locale)
         if locale is not None:
             queryset = queryset.filter(locale=locale)
 

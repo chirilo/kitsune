@@ -4,6 +4,9 @@
 Patching Kitsune
 ================
 
+.. warning::
+    This section of documentation may be outdated.
+
 Submitting a patch to `Kitsune <https://support.mozilla.com>`_ is easy! (Fair
 warning: writing the patch may not be ;)
 
@@ -16,11 +19,10 @@ fairly straight-forward workflow in git for submitting patches. This is
 outlined below.
 
 You should run the tests before submitting a pull request. You can find help
-for getting set up in the :ref:`installation docs <hacking-howto-chapter>` and
+for getting set up in the :any:`installation docs <hacking_howto>` and
 help for running tests in the :ref:`testing docs <tests-chapter>`.
 
-If you ever find yourself stuck, come look for us in `#sumodev
-<ircs://irc.mozilla.org/sumodev>`_ on Mozilla's IRC network. We're happy to
+If you ever find yourself stuck, :any:`contact us <contactus>`. We're happy to
 help!
 
 You'll need a Github account and a Bugzilla account.
@@ -69,7 +71,7 @@ You should only need to do that once. Here's the bit to do every time::
 
 Eventually you'll get an r+. If you have commit access, now you can go ahead
 and merge your branch. You may, if you want, rebase your branch to clean up
-any embarassing mistakes, but it isn't required. If you don't have commit
+any embarrassing mistakes, but it isn't required. If you don't have commit
 access the next part will be done by someone who does.
 
 There are two options. The first is to press the Big Green Button in GitHub PRs
@@ -131,7 +133,7 @@ The correct way to keep your local master up to date is::
     git reset --hard mozilla/master
 
 This will forcibly move your local master branch to whatever is on the Mozilla
-master branch, destroying anything you have commited that wasn't pushed.
+master branch, destroying anything you have committed that wasn't pushed.
 Remember to always work on a branch that is not master!
 
 

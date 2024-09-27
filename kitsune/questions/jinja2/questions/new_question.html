@@ -1,0 +1,42 @@
+{% extends "questions/includes/question_editing_frame.html" %}
+{% from "questions/includes/aaq_macros.html" import explore_solutions %}
+{% from "questions/includes/aaq_macros.html" import select_product %}
+{% set title = _('Get Support') %}
+{% set no_headline = True %}
+{% set hide_locale_switcher = True %}
+{% set meta = [('robots', 'noindex')] %}
+
+{% set classes = 'new-question' %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block formwrap %}
+  {% if current_step == 1 %}
+    {{ select_product(products) }}
+  {% else %}
+    {{ super() }}
+  {% endif %}
+{% endblock %}
+
+{% block contentwrap %}
+  {% if current_step == 2 %}
+    {{ explore_solutions(current_product, search_box, featured, topics, request, has_subscriptions) }}
+  {% else %}
+    {{ super() }}
+  {% endif %}
+{% endblock %}
+
+{% block major_detail_instructions %}
+  <h2 class="sumo-page-heading">
+    {% if has_subscriptions %}
+      {{ _('Contact Support') }}
+    {% else %}
+      {{ _('Ask your question') }}
+    {% endif %}
+  </h2>
+{% endblock %}
+
+{% block submit_button_value %}
+  {{ _('Submit') }}
+{% endblock %}
+{% block submit_button_attrs %}data-event-category="Ask A Question Flow" data-event-action="step 3 link"{% endblock %}

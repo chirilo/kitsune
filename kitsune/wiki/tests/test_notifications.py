@@ -5,31 +5,39 @@ from nose.tools import eq_
 
 from kitsune.sumo.tests import post
 from kitsune.sumo.urlresolvers import reverse
-from kitsune.users.tests import add_permission, user
-from kitsune.products.tests import product
+from kitsune.users.tests import add_permission, UserFactory
+from kitsune.products.tests import ProductFactory
 from kitsune.wiki.config import (
-    SIGNIFICANCES, MAJOR_SIGNIFICANCE, MEDIUM_SIGNIFICANCE, TYPO_SIGNIFICANCE)
-from kitsune.wiki.events import (
-    ReadyRevisionEvent, ApproveRevisionInLocaleEvent)
+    SIGNIFICANCES,
+    MAJOR_SIGNIFICANCE,
+    MEDIUM_SIGNIFICANCE,
+    TYPO_SIGNIFICANCE,
+)
+from kitsune.wiki.events import ReadyRevisionEvent, ApproveRevisionInLocaleEvent
 from kitsune.wiki.models import Revision
-from kitsune.wiki.tests import document, revision, TestCaseBase
+from kitsune.wiki.tests import (
+    DocumentFactory,
+    RevisionFactory,
+    ApprovedRevisionFactory,
+    TestCaseBase,
+)
 
 
 def _assert_ready_mail(mail):
-    assert 'ready for localization' in mail.subject
+    assert "ready for localization" in mail.subject
 
 
 def _assert_approved_mail(mail):
-    assert 'new approved revision' in mail.subject
+    assert "new approved revision" in mail.subject
 
 
 def _assert_creator_mail(mail):
-    assert mail.subject.startswith('Your revision has been approved')
+    assert mail.subject.startswith("Your revision has been approved")
 
 
 def _set_up_ready_watcher():
     """Make a user who watches for revision readiness."""
-    ready_watcher = user(email='ready@example.com', save=True)
+    ready_watcher = UserFactory(email="ready@example.com")
     ReadyRevisionEvent.notify(ready_watcher)
     return ready_watcher
 
@@ -39,39 +47,46 @@ class ReviewTests(TestCaseBase):
 
     def setUp(self):
         """Have a user watch for revision approval. Log in."""
-        self.approved_watcher = user(email='approved@example.com', save=True)
-        ApproveRevisionInLocaleEvent.notify(self.approved_watcher,
-                                            locale='en-US')
-        approver = user(save=True)
-        add_permission(approver, Revision, 'review_revision')
-        add_permission(approver, Revision, 'mark_ready_for_l10n')
-        self.client.login(username=approver.username, password='testpass')
+        self.approved_watcher = UserFactory(email="approved@example.com")
+        ApproveRevisionInLocaleEvent.notify(self.approved_watcher, locale="en-US")
+        approver = UserFactory()
+        add_permission(approver, Revision, "review_revision")
+        add_permission(approver, Revision, "mark_ready_for_l10n")
+        self.client.login(username=approver.username, password="testpass")
 
-    def _review_revision(self, is_approved=True, is_ready=False,
-                         significance=SIGNIFICANCES[0][0], r=None,
-                         comment=None, doc=None):
+    def _review_revision(
+        self,
+        is_approved=True,
+        is_ready=False,
+        significance=SIGNIFICANCES[0][0],
+        r=None,
+        comment=None,
+        **kwargs,
+    ):
         """Make a revision, and approve or reject it through the view."""
         if not r:
-            r = revision(is_approved=False,
-                         is_ready_for_localization=False,
-                         significance=significance,
-                         document=doc,
-                         save=True)
+            r = RevisionFactory(
+                is_approved=False,
+                is_ready_for_localization=False,
+                significance=significance,
+                **kwargs,
+            )
 
         # Figure out POST data:
-        data = {'comment': 'đSome comment'}
+        data = {"comment": "đSome comment"}
         if is_approved:
-            data['approve'] = 'Approve Revision'
-            data['significance'] = significance
+            data["approve"] = "Approve Revision"
+            data["significance"] = significance
             if is_ready:
-                data['is_ready_for_localization'] = 'on'
+                data["is_ready_for_localization"] = "on"
             if comment:
-                data['comment'] = comment
+                data["comment"] = comment
         else:
-            data['reject'] = 'Reject Revision'
+            data["reject"] = "Reject Revision"
 
-        url = reverse('wiki.review_revision', locale=r.document.locale,
-                      args=[r.document.slug, r.id])
+        url = reverse(
+            "wiki.review_revision", locale=r.document.locale, args=[r.document.slug, r.id]
+        )
         response = self.client.post(url, data)
 
         eq_(302, response.status_code)
@@ -91,19 +106,17 @@ class ReviewTests(TestCaseBase):
         """Verify product-specific ready for review notifications."""
         # Add an all products in 'es' watcher and a Firefox OS in 'es'
         # watcher.
-        ApproveRevisionInLocaleEvent.notify(user(save=True), locale='es')
-        ApproveRevisionInLocaleEvent.notify(
-            user(save=True), product='firefox-os', locale='es')
+        ApproveRevisionInLocaleEvent.notify(UserFactory(), locale="es")
+        ApproveRevisionInLocaleEvent.notify(UserFactory(), product="firefox-os", locale="es")
 
         # Create an 'es' document for Firefox
-        parent = document(save=True)
-        doc = document(parent=parent, locale='es', save=True)
-        parent.products.add(product(slug='firefox', save=True))
+        parent = DocumentFactory()
+        doc = DocumentFactory(parent=parent, locale="es")
+        parent.products.add(ProductFactory(slug="firefox"))
 
         # Review a revision. There should be 3 new emails:
         # 1 to the creator, 1 to the reviewer and 1 to the 'es' watcher.
-        self._review_revision(
-            doc=doc, is_ready=True, significance=MEDIUM_SIGNIFICANCE)
+        self._review_revision(document=doc, is_ready=True, significance=MEDIUM_SIGNIFICANCE)
         eq_(3, len(mail.outbox))
         _assert_approved_mail(mail.outbox[0])
         _assert_creator_mail(mail.outbox[1])
@@ -111,30 +124,26 @@ class ReviewTests(TestCaseBase):
         # Add firefox-os to the document's products and review a new revision.
         # There should be 4 new emails now (the same 3 from before plus one
         # for the firefox-os watcher).
-        parent.products.add(product(slug='firefox-os', save=True))
-        self._review_revision(
-            doc=doc, is_ready=True, significance=MEDIUM_SIGNIFICANCE)
+        parent.products.add(ProductFactory(slug="firefox-os"))
+        self._review_revision(document=doc, is_ready=True, significance=MEDIUM_SIGNIFICANCE)
         eq_(7, len(mail.outbox))
         _assert_approved_mail(mail.outbox[3])
         _assert_approved_mail(mail.outbox[4])
         _assert_creator_mail(mail.outbox[5])
 
         # Add a Firefox watcher. This time there should be 5 new emails.
-        ApproveRevisionInLocaleEvent.notify(
-            user(save=True), product='firefox', locale='es')
-        self._review_revision(
-            doc=doc, is_ready=True, significance=MEDIUM_SIGNIFICANCE)
+        ApproveRevisionInLocaleEvent.notify(UserFactory(), product="firefox", locale="es")
+        self._review_revision(document=doc, is_ready=True, significance=MEDIUM_SIGNIFICANCE)
         eq_(12, len(mail.outbox))
 
     def test_typo_significance_ignore(self):
         # Create the first approved revision for the document. This one will
         # always have MAJOR_SIGNIFICANCE.
-        r = revision(is_approved=True, save=True)
+        r = RevisionFactory(is_approved=True)
 
         # Then, set up a watcher and create a TYPO_SIGNIFICANCE revision.
         _set_up_ready_watcher()
-        self._review_revision(is_ready=True, doc=r.document,
-                              significance=TYPO_SIGNIFICANCE)
+        self._review_revision(is_ready=True, document=r.document, significance=TYPO_SIGNIFICANCE)
         # This is the same as test_ready, except we miss 1 mail, that is the
         # localization mail.
         eq_(3, len(mail.outbox))
@@ -146,30 +155,28 @@ class ReviewTests(TestCaseBase):
         self._review_revision(is_ready=False)
         # 1 mail to Approved watcher, 1 to creator, 1 for reviewer
         eq_(3, len(mail.outbox))
-        assert 'new approved revision' in mail.outbox[0].subject
-        assert 'Your revision has been approved' in mail.outbox[1].subject
+        assert "new approved revision" in mail.outbox[0].subject
+        assert "Your revision has been approved" in mail.outbox[1].subject
 
     def test_based_on_approved(self):
-        u1 = user()
-        u1.save()
-        r1 = revision(is_approved=False,
-                      creator=u1,
-                      is_ready_for_localization=False,
-                      save=True)
-        u2 = user()
-        u2.save()
-        r2 = revision(document=r1.document, based_on=r1, is_approved=False,
-                      creator=u2,
-                      is_ready_for_localization=False,
-                      save=True)
+        u1 = UserFactory()
+        r1 = RevisionFactory(is_approved=False, creator=u1, is_ready_for_localization=False)
+        u2 = UserFactory()
+        r2 = RevisionFactory(
+            document=r1.document,
+            based_on=r1,
+            is_approved=False,
+            creator=u2,
+            is_ready_for_localization=False,
+        )
         eq_(0, len(mail.outbox))
         self._review_revision(r=r2)
         # 1 mail for each watcher, 1 for creator, and one for reviewer.
         eq_(4, len(mail.outbox))
-        assert 'has a new approved revision' in mail.outbox[0].subject
-        assert 'Your revision has been approved' in mail.outbox[1].subject
-        assert 'Your revision has been approved' in mail.outbox[2].subject
-        assert 'A revision you contributed to has' in mail.outbox[3].subject
+        assert "has a new approved revision" in mail.outbox[0].subject
+        assert "Your revision has been approved" in mail.outbox[1].subject
+        assert "Your revision has been approved" in mail.outbox[2].subject
+        assert "A revision you contributed to has" in mail.outbox[3].subject
 
     def test_neither(self):
         """Show that neither an Approved nor a Ready mail is sent if a rev is
@@ -177,8 +184,7 @@ class ReviewTests(TestCaseBase):
         _set_up_ready_watcher()
         self._review_revision(is_approved=False)
         eq_(2, len(mail.outbox))  # 1 mail to creator, one to the reviewer.
-        assert mail.outbox[0].subject.startswith(
-            'Your revision has been reviewed')
+        assert mail.outbox[0].subject.startswith("Your revision has been reviewed")
 
     def test_user_watching_both(self):
         """If a single person is watching ready and approved revisions and a
@@ -196,8 +202,10 @@ class ReviewTests(TestCaseBase):
     def test_new_lines_in_review_message(self):
         """Test that newlines in a review message are properly displayed."""
         _set_up_ready_watcher()
-        self._review_revision(comment='foo\n\nbar\nbaz')
-        assert 'foo<br><br>bar<br>baz' in mail.outbox[1].alternatives[0][0]
+        self._review_revision(comment="foo\n\nbar\nbaz")
+        msg = mail.outbox[1].alternatives[0][0]
+        assert "foo</p>" in msg
+        assert "bar<br>baz</p>" in msg
 
     def test_first_approved_revision_has_major_significance(self):
         """The 1st approved revision of a document has MAJOR_SIGNIFICANCE."""
@@ -214,31 +222,28 @@ class ReadyForL10nTests(TestCaseBase):
 
     def setUp(self):
         """Have a user watch for revision approval. Log in."""
-        self.ready_watcher = user(email='approved@example.com', save=True)
+        self.ready_watcher = UserFactory(email="approved@example.com")
         ReadyRevisionEvent.notify(self.ready_watcher)
 
-        readyer = user(save=True)
-        add_permission(readyer, Revision, 'mark_ready_for_l10n')
-        self.client.login(username=readyer.username, password='testpass')
+        readyer = UserFactory()
+        add_permission(readyer, Revision, "mark_ready_for_l10n")
+        self.client.login(username=readyer.username, password="testpass")
 
     def _mark_as_ready_revision(self, doc=None):
         """Make a revision, and approve or reject it through the view."""
         if doc is None:
-            doc = document(save=True)
+            doc = DocumentFactory()
 
-        r = revision(is_approved=True,
-                     is_ready_for_localization=False,
-                     significance=MEDIUM_SIGNIFICANCE,
-                     document=doc,
-                     save=True)
+        r = ApprovedRevisionFactory(
+            is_ready_for_localization=False, significance=MEDIUM_SIGNIFICANCE, document=doc
+        )
 
         # Figure out POST data:
-        data = {'comment': 'something'}
+        data = {"comment": "something"}
 
-        response = post(self.client,
-                        'wiki.mark_ready_for_l10n_revision',
-                        data,
-                        args=[r.document.slug, r.id])
+        response = post(
+            self.client, "wiki.mark_ready_for_l10n_revision", data, args=[r.document.slug, r.id]
+        )
         eq_(200, response.status_code)
 
     def test_ready(self):
@@ -253,11 +258,11 @@ class ReadyForL10nTests(TestCaseBase):
     def test_product_specific_ready(self):
         """Verify product-specific ready for l10n notifications."""
         # Add a Firefox OS watcher.
-        ReadyRevisionEvent.notify(user(save=True), product='firefox-os')
+        ReadyRevisionEvent.notify(UserFactory(), product="firefox-os")
 
         # Create a document for Firefox
-        doc = document(save=True)
-        doc.products.add(product(slug='firefox', save=True))
+        doc = DocumentFactory()
+        doc.products.add(ProductFactory(slug="firefox"))
 
         # Mark a revision a ready for L10n. There should be only one email
         # to the watcher created in setUp.
@@ -267,7 +272,7 @@ class ReadyForL10nTests(TestCaseBase):
 
         # Add firefox-os to the document's products. Mark as ready for l10n,
         # and there should be two new emails.
-        doc.products.add(product(slug='firefox-os', save=True))
+        doc.products.add(ProductFactory(slug="firefox-os"))
         self._mark_as_ready_revision(doc=doc)
         eq_(3, len(mail.outbox))
         _assert_ready_mail(mail.outbox[1])
@@ -275,6 +280,6 @@ class ReadyForL10nTests(TestCaseBase):
 
         # Add a Firefox watcher, mark as ready for l10n, and there should
         # be three new emails.
-        ReadyRevisionEvent.notify(user(save=True), product='firefox')
+        ReadyRevisionEvent.notify(UserFactory(), product="firefox")
         self._mark_as_ready_revision(doc=doc)
         eq_(6, len(mail.outbox))

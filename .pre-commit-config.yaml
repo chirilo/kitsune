@@ -1,30 +1,25 @@
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    sha: cf550fcab3f12015f8676b8278b30e1a5bc10e70
+default_language_version:
+  python: python3.9
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.1.0
     hooks:
-    -   id: check-added-large-files
-    -   id: check-case-conflict
-    -   id: check-json
-    -   id: check-merge-conflict
-    -   id: check-yaml
-    -   id: debug-statements
-    -   id: trailing-whitespace
-    -   id: flake8
-        exclude: "\
-            (.*migrations.*)|\
-            (configs/vagrant/settings_local.py)|\
-            (docs/.*)|\
-            (kitsune/settings.*)|\
-            (kitsune/sumo/db_strings.py)|\
-            (scripts/contributor_counts.py)|\
-            (scripts/crontab/gen-crons.py)|\
-            (scripts/peep.py)|\
-            (scripts/sprint_report.py)|\
-            (scripts/year_in_review.py)"
-        args: [--max-line-length=99]
--   repo: git://github.com/pre-commit/mirrors-eslint
-    sha: '4c6f4aba847a057b7aa1f36838743e460d3e4573'
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: debug-statements
+  - repo: https://github.com/psf/black
+    rev: 21.8b0
     hooks:
-    -   id: eslint
-        exclude: "\
-            (kitsune/sumo/static/sumo/js/libs/.*)|\
-            (scripts/lockdown.js)"
+      - id: black
+        files: "^kitsune/"
+        exclude: "^.*/migrations/.*$|kitsune/sumo/db_strings.py"
+        language_version: python3.9
+  - repo: https://gitlab.com/pycqa/flake8.git
+    rev: 3.8.4
+    hooks:
+      - id: flake8
+  - repo: https://github.com/peterdemin/pip-compile-multi
+    rev: v2.3.0
+    hooks:
+      - id: pip-compile-multi-verify

@@ -1,31 +1,22 @@
-from badger.models import Award, Badge
+import factory
 
-from kitsune.sumo.tests import with_save
-from kitsune.users.tests import profile
-
-
-@with_save
-def award(**kwargs):
-    defaults = {
-        'description': u'An award!',
-    }
-    defaults.update(kwargs)
-
-    if 'badge' not in defaults:
-        defaults['badge'] = badge(save=True)
-
-    if 'user' not in defaults:
-        defaults['user'] = profile().user
-
-    return Award(**defaults)
+from kitsune.kbadge.models import Award, Badge
+from kitsune.sumo.tests import FuzzyUnicode
+from kitsune.users.tests import UserFactory
 
 
-@with_save
-def badge(**kwargs):
-    defaults = {
-        'title': u'BADGE!',
-        'description': u'A badge',
-    }
-    defaults.update(kwargs)
+class BadgeFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = Badge
 
-    return Badge(**defaults)
+    description = FuzzyUnicode()
+    title = FuzzyUnicode()
+
+
+class AwardFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = Award
+
+    badge = factory.SubFactory(BadgeFactory)
+    description = FuzzyUnicode()
+    user = factory.SubFactory(UserFactory)

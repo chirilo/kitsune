@@ -4,6 +4,9 @@
 All about testing
 =================
 
+.. warning::
+    This section of documentation may be outdated.
+
 Kitsune has a fairly comprehensive Python test suite. Changes should
 not break tests---only change a test if there is a good reason to
 change the expected behavior---and new code should come with tests.
@@ -12,8 +15,8 @@ change the expected behavior---and new code should come with tests.
 Running the Test Suite
 ======================
 
-If you followed the steps in :ref:`the installation docs
-<hacking-howto-chapter>`, then you should be all set setup-wise.
+If you followed the steps in :any:`the installation docs
+<hacking_howto>`, then you should be all set setup-wise.
 
 To run the tests, you need to do::
 
@@ -132,197 +135,36 @@ that functionality should move to that package, too.
 JavaScript Tests
 ================
 
-Frontend JavaScript is currently tested with QUnit_, a simple set of
-functions for test setup/teardown and assertions.
+Frontend JavaScript is currently tested with Mocha_.
 
 
 Running JavaScript Tests
 ------------------------
 
-You can run the tests a few different ways but during development you
-probably want to run them in a web browser by opening this page:
-http://127.0.0.1:8000/en-US/qunit/
+To run tests, make sure you have have the NPM dependencies installed, and
+then run::
 
-Before you can load that page, you'll need to adjust your
-``kitsune/settings_local.py`` file so it includes django-qunit::
-
-    INSTALLED_APPS += (
-        # ...
-        'django_qunit',
-    )
-
+  $ scripts/mocha.sh
 
 Writing JavaScript Tests
 ------------------------
 
-QUnit_ tests for the HTML page above are discovered automatically.  Just add
-some_test.js to ``media/js/tests/`` and it will run in the suite.  If
-you need to include a library file to test against, edit
-``media/js/tests/suite.json``.
-
-QUnit_ has some good examples for writing tests.  Here are a few
-additional tips:
-
-* Any HTML required for your test should go in a sandbox using
-  ``tests.createSandbox('#your-template')``.
-  See js/testutils.js for details.
-* To make a useful test based on an actual production template, you can create
-  a snippet and include that in ``templates/tests/qunit.html`` assigned to its own
-  div.  During test setup, reference the div in createSandbox()
-* You can use `$.mockjax`_ to test how your code handles server responses,
-  errors, and timeouts.
-
-.. _Qunit: http://docs.jquery.com/Qunit
-.. _`$.mockjax`: http://enterprisejquery.com/2010/07/mock-your-ajax-requests-with-mockjax-for-rapid-development/
+Mocha tests are discovered using the pattern
+``kitsune/*/static/*/js/tests/**/*.js``. That means that any app can
+have a `tests` directory in its JavaScript directory, and the files in
+there will all be considered test files. Files that don't define tests
+won't cause issues, so it is safe to put testing utilities in these
+directories as well.
 
 
-In-Suite Selenium Tests
-=======================
+Here are a few tips for writing tests:
 
-Front end testing that can't be done with QUnit can be done with
-Selenium_, a system for remote-controlling real browser windows and
-verifying behavior. Currently the tests are hard coded to use a local
-instance of Firefox.
+* Any HTML required for your test should be added by the tests or a
+  ``beforeEach`` function in that test suite. React is useful for this.
+* You can use `sinon` to mock out parts of libraries or functions under
+  test. This is useful for testing AJAX.
+* The tests run in a Node.js environment. A browser environment can be
+  simulated using ``jsdom``. Specifically, ``mocha-jsdom`` is useful to
+  set up and tear down the simulated environment.
 
-.. _Selenium: http://docs.seleniumhq.org/
-
-These tests are designed to be run locally on development laptops and
-locally on Jenkins. They are to provide some more security that we
-aren't breaking things when we write new code, and should run before
-commiting to master, just like any of our other in-suite tests. They are
-not intended to replace the QA test suites that run against dev, stage,
-and prod, and are not intended to beat on the site to find vulnerabilities.
-
-You don't need a Selenium server to run these, and don't need to install
-anything more than a modern version of Firefox, and the dependencies in
-the requirements directory.
-
-These tests use Django's `Live Server TestCase`_ class as a base, which
-causes Django to run a real http server for some of it's tests, instead
-of it's mocked http server that is used for most tests. This means it
-will allocate a port and try to render pages like a real server would.
-If static files are broken for you, these tests will likely fail as
-well.
-
-.. _`Live Server TestCase`: https://docs.djangoproject.com/en/1.4/topics/testing/#django.test.LiveServerTestCase
-
-
-Running Selenium Tests
-----------------------
-
-By default, the Selenium tests will run as a part of the normal test
-suite. When they run, a browser window will open and steal input for a
-moment. You don't need to interact with it, and if all goes well, it
-will close when the tests are complete. This cycle of open/test/close
-may happen more than once each time you run the tests, as each TestCase
-that uses Selenium will open it's own webdriver, which opens a browser
-window.
-
-When the Selenium tests kick off, Django starts an instance of the
-server with ``DEBUG=False``. Because of this, you have to run these
-two commands before running the tests::
-
-    ./manage.py collectstatic
-    ./manage.py compress_assets
-
-
-Writing Selenium Tests
-----------------------
-
-To add a Selenium test, subclass ``kitsune.sumo.tests.SeleniumTestCase``.
-instance of Selenium's webdriver will be automatically instantiated and
-is available at ``self.webdriver``, and you can do things like
-``self.webdriver.get(url)`` and
-``self.webdriver.find_element_by_css_selector('div.baz')``. For more details
-about how to work with Selenium, you can check out Selenium HQ's guide_.
-
-.. _guide: http://docs.seleniumhq.org/docs/03_webdriver.jsp
-
-
-XVFB and Selenium
------------------
-
-Because Selenium opens real browser windows, it can be kind of annoying
-as windows open and steal focus and switch workspaces. Unfortunatly,
-Firefox doesn't have a headless mode of operation, so we can't simply
-turn off the UI. Luckily, there is a way to work around this fairly
-easily on Linux, and with some effort on OSX.
-
-Linux
-~~~~~
-
-Install XVFB_ and run the tests with it's xvfb-run binary. For example, if you
-run tests like::
-
-    ./manage.py test -s --noinput --logging-clear-handlers
-
-
-You can switch to this to run with XVFB::
-
-    xvfb-run ./manage.py test -s --noinput --logging-clear-handlers
-
-
-This creates a virtual X session for Firefox to run in, and sets up all the
-fiddly environment variables to get this working well. The tests will run as
-normal, and no windows will open, if all is working right.
-
-.. _XVFB: http://www.x.org/archive/current/doc/man/man1/Xvfb.1.xhtml
-
-OSX
-~~~
-
-The same method can be used for OSX, but it requires some fiddliness.
-The default version of Firefox for OSX does not use X as it's graphic's
-backend, so by default XVFB can't help. You can however run an X11 enabled
-version of OSX and a OSX version of XVFB. You can find more details
-`here <http://afitnerd.com/2011/09/06/headless-browser-testing-on-mac/>`_.
-
-.. Note::
-
-   I don't use OSX, and that blog article is fairly out of date. If you
-   find a way to get this working bettter or easier, or have better docs to
-   share, please do!
-
-
-Troubleshooting
----------------
-
-**It says "Selenium unavailable."**
-
-    This could mean that Selenium couldn't launch Firefox or can
-    launch it, but can't connect to it.
-
-    Selenium by default looks for Firefox in "the usual places".
-    You can explicitly tell it which Firefox binary to use with
-    the ``SELENIUM_FIREFOX_PATH`` setting.
-
-    For example, in your ``settings_local.py`` file::
-
-        SELENIUM_FIREFOX_PATH = '/usr/bin/firefox'
-
-    I do this to make sure I'm using Firefox stable for tests
-    rather than Firefox nightly.
-
-
-.. _tests-chapter-qa-test-suite:
-
-The QA test suite
-=================
-
-QA has their own test suite. The code is located on github at
-`<https://github.com/mozilla/sumo-tests/>`_.
-
-There are three test suites. They differ in what they do and where
-they run:
-
-    ============  ===========================================================
-    name          description
-    ============  ===========================================================
-    sumo.fft      runs on -dev
-    sumo.stage    runs on -stage
-    sumo.prod     runs on -prod and is read-only (it doesn't change any data)
-    ============  ===========================================================
-
-There's a qatestbot in IRC. You can ask it to run the QA tests by::
-
-    qatestbot build <test-suite>
+.. _Mocha: https://mochajs.org/

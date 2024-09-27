@@ -1,29 +1,23 @@
-from datetime import date
-
 from celery import task
+from django.contrib.auth.models import User
 
-from kitsune.customercare.models import Reply
-from kitsune.kbadge.utils import get_or_create_badge
-from kitsune.sumo.decorators import timeit
+from kitsune.customercare.zendesk import ZendeskClient
 
 
-@task()
-@timeit
-def maybe_award_badge(badge_template, year, user):
-    """Award the specific badge to the user if they've earned it."""
-    badge = get_or_create_badge(badge_template, year)
+@task
+def update_zendesk_user(user_id: int) -> None:
+    user = User.objects.get(pk=user_id)
+    if user.profile.zendesk_id:
+        zendesk = ZendeskClient()
+        zendesk.update_user(user)
 
-    # If the user already has the badge, there is nothing else to do.
-    if badge.is_awarded_to(user):
-        return
 
-    # Count the number of replies tweeted in the current year.
-    qs = Reply.objects.filter(
-        user=user,
-        created__gte=date(year, 1, 1),
-        created__lt=date(year + 1, 1, 1))
+@task
+def update_zendesk_identity(user_id: int, email: str) -> None:
+    user = User.objects.get(pk=user_id)
+    zendesk_user_id = user.profile.zendesk_id
 
-    # If the count is 50 or higher, award the badge.
-    if qs.count() >= 50:
-        badge.award_to(user)
-        return True
+    # fetch identity id
+    if zendesk_user_id:
+        zendesk = ZendeskClient()
+        zendesk.update_primary_email(zendesk_user_id, email)
